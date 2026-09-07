@@ -30,6 +30,31 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT_DIR = CURRENT_DIR if os.path.exists(os.path.join(CURRENT_DIR, "index.html")) else os.path.dirname(CURRENT_DIR)
+
+for folder in ["css", "js", "assets"]:
+    f_path = os.path.join(ROOT_DIR, folder)
+    if os.path.exists(f_path):
+        app.mount(f"/{folder}", StaticFiles(directory=f_path), name=folder)
+
+@app.get("/")
+async def serve_root():
+    index_file = os.path.join(ROOT_DIR, "index.html")
+    if os.path.exists(index_file):
+        return FileResponse(index_file)
+    return {"message": "ATV & Buggy Chatbot API is Running"}
+
+@app.get("/index.html")
+async def serve_index():
+    index_file = os.path.join(ROOT_DIR, "index.html")
+    if os.path.exists(index_file):
+        return FileResponse(index_file)
+    return {"message": "ATV & Buggy Chatbot API is Running"}
+
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 class ChatRequest(BaseModel):
