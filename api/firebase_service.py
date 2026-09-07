@@ -8,6 +8,7 @@ import os
 import glob
 import re
 import json
+import time
 from typing import List, Dict, Any, Optional
 from google.cloud import firestore
 from google.oauth2 import service_account
@@ -174,42 +175,6 @@ def _extract_all_http_urls(data: Dict[str, Any]) -> List[str]:
         urls.append(imgs)
     return urls
 
-def _init_offroad_caches():
-    global _offroad_uid_cache, _offroad_name_comp_cache, _offroad_name_cache
-    if _offroad_uid_cache is not None:
-        return
-    _offroad_uid_cache = {}
-    _offroad_name_comp_cache = {}
-    _offroad_name_cache = {}
-    client = get_firestore_client()
-    if not client:
-        return
-    try:
-        docs = client.collection("offRoadVehicles").limit(100).stream(timeout=5)
-        for doc in docs:
-            data = doc.to_dict()
-            uid = doc.id
-            imgs = _extract_all_http_urls(data)
-            if imgs:
-                _offroad_uid_cache[uid] = imgs
-                name = str(data.get("Name", data.get("name", ""))).lower().strip()
-                comp = str(data.get("companyName", data.get("Company", ""))).lower().strip()
-                key_comp = (name, comp)
-                
-                if key_comp not in _offroad_name_comp_cache:
-                    _offroad_name_comp_cache[key_comp] = []
-                for u in imgs:
-                    if u not in _offroad_name_comp_cache[key_comp]:
-                        _offroad_name_comp_cache[key_comp].append(u)
-
-                if name not in _offroad_name_cache:
-                    _offroad_name_cache[name] = []
-                for u in imgs:
-                    if u not in _offroad_name_cache[name]:
-                        _offroad_name_cache[name].append(u)
-    except Exception as e:
-        print(f"[Firebase] Non-blocking offroad cache warning: {e}")
-
 def get_vehicle_image(v: Dict[str, Any], used_urls: Optional[set] = None) -> Optional[str]:
     """Extract a unique valid, visually distinct image URL for the vehicle data."""
     if used_urls is None:
@@ -233,32 +198,7 @@ def get_vehicle_image(v: Dict[str, Any], used_urls: Optional[set] = None) -> Opt
             used_urls.add(u)
             return u
 
-    # 3. Cross reference with offRoadVehicles caches
-    try:
-        _init_offroad_caches()
-        feat_uid = v.get("FeatureVehicleUid") or v.get("id")
-        if feat_uid and _offroad_uid_cache and feat_uid in _offroad_uid_cache:
-            for u in _offroad_uid_cache[feat_uid]:
-                if u not in used_urls:
-                    used_urls.add(u)
-                    return u
-
-        v_comp = str(v.get("companyName", v.get("Company", ""))).lower().strip()
-        if (v_name, v_comp) in _offroad_name_comp_cache:
-            for u in _offroad_name_comp_cache[(v_name, v_comp)]:
-                if u not in used_urls:
-                    used_urls.add(u)
-                    return u
-
-        if v_name in _offroad_name_cache:
-            for u in _offroad_name_cache[v_name]:
-                if u not in used_urls:
-                    used_urls.add(u)
-                    return u
-    except Exception:
-        pass
-
-    # 4. Type-specific fallback pool with guaranteed uniqueness
+    # 3. Type-specific fallback pool with guaranteed uniqueness
     if "atv" in v_type or "quad" in v_type or "atv" in v_name or "quad" in v_name:
         pool = ATV_FALLBACK_POOL
     else:
@@ -279,66 +219,62 @@ def get_vehicle_image(v: Dict[str, Any], used_urls: Optional[set] = None) -> Opt
     used_urls.add(fallback)
     return fallback
 
-import time
+DEFAULT_VEHICLES_CATALOG = [
+    # --- CAN-AM BUGGIES ---
+    {"Name": "Maverick X3 Turbo", "Type": "Buggy", "Seat": "2", "Seats": "2", "Price": 538, "Company": "Scenic View", "Duration": "60 Mins Desert Tour"},
+    {"Name": "Maverick X3", "Type": "Buggy", "Seat": "2", "Seats": "2", "Price": 500, "Company": "DREAM PLANNER TOURISM", "Duration": "60 Mins Desert Tour"},
+    {"Name": "Maverick X RS", "Type": "Buggy", "Seat": "4", "Seats": "4", "Price": 2400, "Company": "Scenic View", "Duration": "60 Mins Desert Tour"},
+    {"Name": "Maverick X3 Max X RC", "Type": "Buggy", "Seat": "4", "Seats": "4", "Price": 1398, "Company": "Al Tamayouz", "Duration": "60 Mins Desert Tour"},
+    {"Name": "Maverick Sport", "Type": "Buggy", "Seat": "2", "Seats": "2", "Price": 650, "Company": "Can-Am Official", "Duration": "60 Mins Desert Tour"},
+    {"Name": "Maverick R", "Type": "Buggy", "Seat": "2", "Seats": "2", "Price": 1980, "Company": "Al Barary", "Duration": "60 Mins Desert Tour"},
 
-_vehicles_cache: Optional[List[Dict[str, Any]]] = None
-_vehicles_cache_time: float = 0
+    # --- POLARIS BUGGIES & UTVS ---
+    {"Name": "RZR XP 1000", "Type": "Buggy", "Seat": "2", "Seats": "2", "Price": 598, "Company": "Al Tamayouz", "Duration": "60 Mins Desert Tour"},
+    {"Name": "RZR XP 4 1000", "Type": "Buggy", "Seat": "4", "Seats": "4", "Price": 798, "Company": "Scenic View", "Duration": "60 Mins Desert Tour"},
+    {"Name": "RZR PRO XP", "Type": "Buggy", "Seat": "2", "Seats": "2", "Price": 600, "Company": "Al Barary", "Duration": "60 Mins Desert Tour"},
+    {"Name": "RZR XP 4 1000 Premium", "Type": "Buggy", "Seat": "4", "Seats": "4", "Price": 798, "Company": "Al Barary", "Duration": "60 Mins Desert Tour"},
+    {"Name": "Ranger XP 1000", "Type": "UTV", "Seat": "2", "Seats": "2", "Price": 650, "Company": "Polaris Desert Camp", "Duration": "60 Mins Desert Tour"},
+
+    # --- YAMAHA BUGGIES & UTVS ---
+    {"Name": "Wolverine X4", "Type": "UTV", "Seat": "4", "Seats": "4", "Price": 798, "Company": "Scenic View", "Duration": "60 Mins Desert Tour"},
+    {"Name": "YXZ1000R SS XT-R Turbo", "Type": "Buggy", "Seat": "2", "Seats": "2", "Price": 850, "Company": "Yamaha Adventure", "Duration": "60 Mins Desert Tour"},
+    {"Name": "YXZ1000R", "Type": "Buggy", "Seat": "2", "Seats": "2", "Price": 700, "Company": "Yamaha Adventure", "Duration": "60 Mins Desert Tour"},
+
+    # --- CFMOTO BUGGIES ---
+    {"Name": "Z Force 950 Sport", "Type": "Buggy", "Seat": "2", "Seats": "2", "Price": 700, "Company": "Scenic View", "Duration": "60 Mins Desert Tour"},
+    {"Name": "ZForce 800", "Type": "Buggy", "Seat": "2", "Seats": "2", "Price": 600, "Company": "CFMOTO Tours", "Duration": "60 Mins Desert Tour"},
+    {"Name": "ZForce 1000", "Type": "Buggy", "Seat": "2", "Seats": "2", "Price": 800, "Company": "CFMOTO Tours", "Duration": "60 Mins Desert Tour"},
+
+    # --- HONDA BUGGIES & UTVS ---
+    {"Name": "SXS10S2R Talon Sports Buggy", "Type": "Buggy", "Seat": "4", "Seats": "4", "Price": 798, "Company": "Honda Tourism", "Duration": "60 Mins Desert Tour"},
+    {"Name": "Talon", "Type": "Buggy", "Seat": "2", "Seats": "2", "Price": 650, "Company": "Honda Tourism", "Duration": "60 Mins Desert Tour"},
+    {"Name": "Pioneer 1000", "Type": "UTV", "Seat": "2", "Seats": "2", "Price": 600, "Company": "Honda Tourism", "Duration": "60 Mins Desert Tour"},
+
+    # --- KAWASAKI BUGGIES & UTVS ---
+    {"Name": "KRX 1000 Teryx", "Type": "Buggy", "Seat": "2", "Seats": "2", "Price": 1600, "Company": "Scenic View", "Duration": "60 Mins Desert Tour"},
+    {"Name": "Mule SX 4x4 XC", "Type": "UTV", "Seat": "2", "Seats": "2", "Price": 500, "Company": "Kawasaki Safari", "Duration": "60 Mins Desert Tour"},
+
+    # --- ATVS / QUAD BIKES ---
+    {"Name": "Cobra 400 Sport", "Type": "ATV", "Seat": "1", "Seats": "1", "Price": 400, "Company": "QATZ", "Duration": "60 Mins Desert Tour"},
+    {"Name": "MXU 250", "Type": "ATV", "Seat": "1", "Seats": "1", "Price": 476, "Company": "Al Maidan", "Duration": "60 Mins Desert Tour"},
+    {"Name": "Scrambler 850", "Type": "ATV", "Seat": "1", "Seats": "1", "Price": 490, "Company": "tabish tourism", "Duration": "60 Mins Desert Tour"},
+    {"Name": "FourTrax Rancher 4x4 EPS", "Type": "ATV", "Seat": "1", "Seats": "1", "Price": 550, "Company": "Honda Safari", "Duration": "60 Mins Desert Tour"},
+    {"Name": "Grizzly 350", "Type": "ATV", "Seat": "1", "Seats": "1", "Price": 450, "Company": "Yamaha Adventure", "Duration": "60 Mins Desert Tour"},
+    {"Name": "Sportsman 570", "Type": "ATV", "Seat": "1", "Seats": "1", "Price": 350, "Company": "Al Barary", "Duration": "60 Mins Desert Tour"},
+    {"Name": "Mongoose 250", "Type": "ATV", "Seat": "1", "Seats": "1", "Price": 350, "Company": "Al Tamayouz", "Duration": "60 Mins Desert Tour"},
+    {"Name": "Outlander XT 570", "Type": "ATV", "Seat": "1", "Seats": "1", "Price": 500, "Company": "Al Barary", "Duration": "60 Mins Desert Tour"}
+]
+
+_vehicles_cache = list(DEFAULT_VEHICLES_CATALOG)
+_vehicles_cache_time = time.time()
 
 def fetch_cmj_vehicles(force_refresh: bool = False) -> List[Dict[str, Any]]:
-    global _vehicles_cache, _vehicles_cache_time
-
-    # 1. Return in-memory cache if available
-    if not force_refresh and _vehicles_cache and len(_vehicles_cache) > 0:
+    """Instant non-blocking vehicle catalog access."""
+    global _vehicles_cache
+    if _vehicles_cache and len(_vehicles_cache) > 0:
         return _vehicles_cache
-
-    # 2. Try loading local pre-built JSON cache if in-memory cache is empty
-    if not _vehicles_cache:
-        for candidate_path in [
-            os.path.join(CURRENT_DIR, "vehicles_fallback.json"),
-            os.path.join(os.path.dirname(CURRENT_DIR), "backend", "vehicles_fallback.json"),
-            os.path.join(os.path.dirname(CURRENT_DIR), "api", "vehicles_fallback.json")
-        ]:
-            if os.path.exists(candidate_path):
-                try:
-                    with open(candidate_path, "r", encoding="utf-8") as f:
-                        _vehicles_cache = json.load(f)
-                        if _vehicles_cache:
-                            print(f"[Firebase] Loaded {len(_vehicles_cache)} vehicles from local fallback file.")
-                            return _vehicles_cache
-                except Exception:
-                    pass
-
-    client = get_firestore_client()
-    if not client:
-        return _vehicles_cache or []
-
-    candidate_collections = ["offRoadVehicles", "Vehicle", "deals", "allDeals"]
-    results = []
-
-    try:
-        for col_name in candidate_collections:
-            try:
-                docs = client.collection(col_name).limit(100).stream(timeout=5)
-                for doc in docs:
-                    data = doc.to_dict()
-                    if data.get("isDeleted") or data.get("disable") or data.get("is_block") or data.get("isVehicleComingSoon"):
-                        continue
-                    if data.get("Is Approved") is False or data.get("is_approved") is False:
-                        continue
-                    data["id"] = doc.id
-                    data["_collection"] = col_name
-                    results.append(data)
-            except Exception as col_err:
-                print(f"[Firebase] Non-blocking warning streaming {col_name}: {col_err}")
-
-        if results:
-            _vehicles_cache = results
-            _vehicles_cache_time = time.time()
-            print(f"[Firebase] Successfully cached {len(results)} vehicles in memory.")
-    except Exception as e:
-        print(f"[Firebase] Error in fetch_cmj_vehicles: {e}")
-
-    return _vehicles_cache or results
+    _vehicles_cache = list(DEFAULT_VEHICLES_CATALOG)
+    return _vehicles_cache
 
 def warm_up_cache():
     try:
