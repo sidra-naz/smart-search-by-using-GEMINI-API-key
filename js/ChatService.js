@@ -1,6 +1,9 @@
 export class ChatService {
     constructor() {
-        this.apiUrl = 'http://127.0.0.1:8000/api/chat';
+        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        this.apiUrl = isLocal && window.location.port === '3000' 
+            ? 'http://127.0.0.1:8000/api/chat' 
+            : '/api/chat';
     }
 
     async sendMessageStream(message, history, onToken) {
