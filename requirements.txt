@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+pydantic
+python-dotenv
+langchain-google-genai
+google-cloud-firestore
+google-auth
+requests
