@@ -21,9 +21,9 @@ CRED_PATH = key_files[0] if key_files else None
 
 _db: Optional[firestore.Client] = None
 
-def get_firestore_client() -> Optional[firestore.Client]:
+def get_firestore_client(force_new: bool = False) -> Optional[firestore.Client]:
     global _db
-    if _db is not None:
+    if _db is not None and not force_new:
         return _db
 
     # 1. Check environment variable FIREBASE_CREDENTIALS (for Vercel deployment)
@@ -52,6 +52,7 @@ def get_firestore_client() -> Optional[firestore.Client]:
                 return _db
             except Exception as ex:
                 print(f"[Firebase] Error connecting to cmj-dev database: {ex}")
+                _db = None
                 return None
     else:
         print("[Firebase] Warning: Service account JSON key not found.")
@@ -59,7 +60,6 @@ def get_firestore_client() -> Optional[firestore.Client]:
 
 def get_vehicle_price(v: Dict[str, Any]) -> Optional[float]:
     """Extract realistic hourly price value from various Firestore document keys."""
-    # 1. Direct standard schedule/deal keys
     for key in ["scheduleLowestPrice60Min", "scheduleHighestPrice60Min", "Price", "price", "scheduleLowestPrice"]:
         val = v.get(key)
         if val is not None and str(val).strip() != "":
@@ -70,7 +70,6 @@ def get_vehicle_price(v: Dict[str, Any]) -> Optional[float]:
             except ValueError:
                 pass
 
-    # 2. Manual booking dictionary prices
     mbp = v.get("manualBookingPrices")
     if isinstance(mbp, dict):
         for k in ["60", "30", "120", "180"]:
@@ -83,7 +82,6 @@ def get_vehicle_price(v: Dict[str, Any]) -> Optional[float]:
                 except ValueError:
                     pass
 
-    # 3. Fallback standard catalog rate if not explicitly specified in document
     raw_name = str(v.get("Name", v.get("name", ""))).lower()
     raw_type = str(v.get("Type", v.get("type", ""))).lower()
     s_str = str(v.get("Seat", v.get("Seats", v.get("seats", ""))))
@@ -95,63 +93,28 @@ def get_vehicle_price(v: Dict[str, Any]) -> Optional[float]:
     else:
         return 598.0
 
-# Model-specific verified visual photo library from live database
 MODEL_SPECIFIC_IMAGES = {
-    "zforce": [
-        "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/4451?alt=media&token=831c6d49-f076-49b9-bffc-aea13c9b0109"
-    ],
-    "z force": [
-        "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/4451?alt=media&token=831c6d49-f076-49b9-bffc-aea13c9b0109"
-    ],
-    "cfmoto": [
-        "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/4451?alt=media&token=831c6d49-f076-49b9-bffc-aea13c9b0109"
-    ],
-    "uforce": [
-        "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/4451?alt=media&token=831c6d49-f076-49b9-bffc-aea13c9b0109"
-    ],
+    "zforce": ["https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/4451?alt=media&token=831c6d49-f076-49b9-bffc-aea13c9b0109"],
+    "z force": ["https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/4451?alt=media&token=831c6d49-f076-49b9-bffc-aea13c9b0109"],
+    "cfmoto": ["https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/4451?alt=media&token=831c6d49-f076-49b9-bffc-aea13c9b0109"],
+    "uforce": ["https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/4451?alt=media&token=831c6d49-f076-49b9-bffc-aea13c9b0109"],
     "wolverine": [
         "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/4717?alt=media&token=02d06b37-9bc0-4d3b-adcb-d8c89fb1fabc",
         "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/4979?alt=media&token=e838f550-1930-40a0-a0e1-3776be315beb"
     ],
-    "yxz": [
-        "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/4717?alt=media&token=02d06b37-9bc0-4d3b-adcb-d8c89fb1fabc"
-    ],
-    "yamaha": [
-        "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/4717?alt=media&token=02d06b37-9bc0-4d3b-adcb-d8c89fb1fabc"
-    ],
-    "talon": [
-        "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/4655?alt=media&token=42fcba83-93f8-44b1-b588-9b7fbcf25f96"
-    ],
-    "pioneer": [
-        "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/4655?alt=media&token=42fcba83-93f8-44b1-b588-9b7fbcf25f96"
-    ],
-    "honda": [
-        "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/4655?alt=media&token=42fcba83-93f8-44b1-b588-9b7fbcf25f96"
-    ],
-    "teryx": [
-        "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/5904?alt=media&token=d602feba-60be-4e50-9a54-38580941ed27"
-    ],
-    "krx": [
-        "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/5904?alt=media&token=d602feba-60be-4e50-9a54-38580941ed27"
-    ],
-    "mule": [
-        "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/5904?alt=media&token=d602feba-60be-4e50-9a54-38580941ed27"
-    ],
-    "kawasaki": [
-        "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/5904?alt=media&token=d602feba-60be-4e50-9a54-38580941ed27"
-    ],
-    "wildcat": [
-        "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/5487?alt=media&token=fb28eef8-7ed8-4af5-8fec-1703e9c727ad"
-    ],
-    "arctic cat": [
-        "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/5487?alt=media&token=fb28eef8-7ed8-4af5-8fec-1703e9c727ad"
-    ],
-    "maverick": [
-        "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/1772?alt=media&token=f2a2f4e6-1f78-4ad9-a003-df04be78dfe6"
-    ],
-    "can-am": [
-        "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/1772?alt=media&token=f2a2f4e6-1f78-4ad9-a003-df04be78dfe6"
-    ],
+    "yxz": ["https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/4717?alt=media&token=02d06b37-9bc0-4d3b-adcb-d8c89fb1fabc"],
+    "yamaha": ["https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/4717?alt=media&token=02d06b37-9bc0-4d3b-adcb-d8c89fb1fabc"],
+    "talon": ["https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/4655?alt=media&token=42fcba83-93f8-44b1-b588-9b7fbcf25f96"],
+    "pioneer": ["https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/4655?alt=media&token=42fcba83-93f8-44b1-b588-9b7fbcf25f96"],
+    "honda": ["https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/4655?alt=media&token=42fcba83-93f8-44b1-b588-9b7fbcf25f96"],
+    "teryx": ["https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/5904?alt=media&token=d602feba-60be-4e50-9a54-38580941ed27"],
+    "krx": ["https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/5904?alt=media&token=d602feba-60be-4e50-9a54-38580941ed27"],
+    "mule": ["https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/5904?alt=media&token=d602feba-60be-4e50-9a54-38580941ed27"],
+    "kawasaki": ["https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/5904?alt=media&token=d602feba-60be-4e50-9a54-38580941ed27"],
+    "wildcat": ["https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/5487?alt=media&token=fb28eef8-7ed8-4af5-8fec-1703e9c727ad"],
+    "arctic cat": ["https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/5487?alt=media&token=fb28eef8-7ed8-4af5-8fec-1703e9c727ad"],
+    "maverick": ["https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/1772?alt=media&token=f2a2f4e6-1f78-4ad9-a003-df04be78dfe6"],
+    "can-am": ["https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/1772?alt=media&token=f2a2f4e6-1f78-4ad9-a003-df04be78dfe6"],
     "rzr xp 4": [
         "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/7757?alt=media&token=786f9e6e-fe64-486a-808c-960ef99aa158",
         "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/8197?alt=media&token=98a9d6cc-087d-4c1c-92c1-10ebcb454044"
@@ -160,32 +123,14 @@ MODEL_SPECIFIC_IMAGES = {
         "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/7953?alt=media&token=d2268693-7d38-4e82-b21a-74b5a682ba98",
         "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/9108?alt=media&token=0c9a27ee-acec-4c8d-b625-a89edc35a4f4"
     ],
-    "ranger": [
-        "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/7953?alt=media&token=d2268693-7d38-4e82-b21a-74b5a682ba98"
-    ],
-    "gts": [
-        "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/4655?alt=media&token=42fcba83-93f8-44b1-b588-9b7fbcf25f96"
-    ],
-    "tour": [
-        "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/4717?alt=media&token=02d06b37-9bc0-4d3b-adcb-d8c89fb1fabc"
-    ],
-    "grizzly": [
-        "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/users%2FrM4rRtN3KmeDxNrrgGcJ6BtSWyu2%2Fvehicle%2F3910.jpg?alt=media&token=4db255ad-9dc4-45ed-acdf-e4f0a275a7fd"
-    ],
-    "cobra": [
-        "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/8016?alt=media&token=74144f54-f601-47a0-a7ca-c428cb8780ec"
-    ],
-    "sportsman": [
-        "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/7115?alt=media&token=264468a5-cc3c-44ff-9972-bd9e6c0cfcff"
-    ],
-    "mxu": [
-        "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/7106?alt=media&token=9514fdeb-a9ca-4ee7-8e35-588c6066293d",
-        "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/3753?alt=media&token=6b045e80-f336-4f56-aedb-163b9133f1dc"
-    ],
-    "mongoose": [
-        "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/134?alt=media&token=20c9688b-8a8a-4486-af95-84d28ffb0abf",
-        "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/9180?alt=media&token=60d101c9-4487-4e6c-948a-47f09f3a6e7d"
-    ]
+    "ranger": ["https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/7953?alt=media&token=d2268693-7d38-4e82-b21a-74b5a682ba98"],
+    "gts": ["https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/4655?alt=media&token=42fcba83-93f8-44b1-b588-9b7fbcf25f96"],
+    "tour": ["https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/4717?alt=media&token=02d06b37-9bc0-4d3b-adcb-d8c89fb1fabc"],
+    "grizzly": ["https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/users%2FrM4rRtN3KmeDxNrrgGcJ6BtSWyu2%2Fvehicle%2F3910.jpg?alt=media&token=4db255ad-9dc4-45ed-acdf-e4f0a275a7fd"],
+    "cobra": ["https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/8016?alt=media&token=74144f54-f601-47a0-a7ca-c428cb8780ec"],
+    "sportsman": ["https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/7115?alt=media&token=264468a5-cc3c-44ff-9972-bd9e6c0cfcff"],
+    "mxu": ["https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/7106?alt=media&token=9514fdeb-a9ca-4ee7-8e35-588c6066293d"],
+    "mongoose": ["https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/134?alt=media&token=20c9688b-8a8a-4486-af95-84d28ffb0abf"]
 }
 
 BUGGY_FALLBACK_POOL = [
@@ -204,8 +149,7 @@ ATV_FALLBACK_POOL = [
     "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/users%2FrM4rRtN3KmeDxNrrgGcJ6BtSWyu2%2Fvehicle%2F3910.jpg?alt=media&token=4db255ad-9dc4-45ed-acdf-e4f0a275a7fd",
     "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/7115?alt=media&token=264468a5-cc3c-44ff-9972-bd9e6c0cfcff",
     "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/7106?alt=media&token=9514fdeb-a9ca-4ee7-8e35-588c6066293d",
-    "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/134?alt=media&token=20c9688b-8a8a-4486-af95-84d28ffb0abf",
-    "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/3753?alt=media&token=6b045e80-f336-4f56-aedb-163b9133f1dc"
+    "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/134?alt=media&token=20c9688b-8a8a-4486-af95-84d28ffb0abf"
 ]
 
 _offroad_uid_cache: Optional[Dict[str, List[str]]] = None
@@ -241,7 +185,7 @@ def _init_offroad_caches():
     if not client:
         return
     try:
-        docs = client.collection("offRoadVehicles").stream()
+        docs = client.collection("offRoadVehicles").limit(100).stream(timeout=5)
         for doc in docs:
             data = doc.to_dict()
             uid = doc.id
@@ -264,7 +208,7 @@ def _init_offroad_caches():
                     if u not in _offroad_name_cache[name]:
                         _offroad_name_cache[name].append(u)
     except Exception as e:
-        print(f"[Firebase] Error building offroad image cache: {e}")
+        print(f"[Firebase] Non-blocking offroad cache warning: {e}")
 
 def get_vehicle_image(v: Dict[str, Any], used_urls: Optional[set] = None) -> Optional[str]:
     """Extract a unique valid, visually distinct image URL for the vehicle data."""
@@ -339,67 +283,67 @@ import time
 
 _vehicles_cache: Optional[List[Dict[str, Any]]] = None
 _vehicles_cache_time: float = 0
-CACHE_TTL_SECONDS = 300  # 5 minutes cache
 
 def fetch_cmj_vehicles(force_refresh: bool = False) -> List[Dict[str, Any]]:
-    """
-    Read-only fetch of vehicle and deal documents from the Firestore database.
-    Caches results in memory for CACHE_TTL_SECONDS to ensure ultra-fast response times.
-    """
     global _vehicles_cache, _vehicles_cache_time
 
-    now_ts = time.time()
-    if not force_refresh and _vehicles_cache is not None and (now_ts - _vehicles_cache_time < CACHE_TTL_SECONDS):
+    # 1. Return in-memory cache if available
+    if not force_refresh and _vehicles_cache and len(_vehicles_cache) > 0:
         return _vehicles_cache
+
+    # 2. Try loading local pre-built JSON cache if in-memory cache is empty
+    if not _vehicles_cache:
+        for candidate_path in [
+            os.path.join(CURRENT_DIR, "vehicles_fallback.json"),
+            os.path.join(os.path.dirname(CURRENT_DIR), "backend", "vehicles_fallback.json"),
+            os.path.join(os.path.dirname(CURRENT_DIR), "api", "vehicles_fallback.json")
+        ]:
+            if os.path.exists(candidate_path):
+                try:
+                    with open(candidate_path, "r", encoding="utf-8") as f:
+                        _vehicles_cache = json.load(f)
+                        if _vehicles_cache:
+                            print(f"[Firebase] Loaded {len(_vehicles_cache)} vehicles from local fallback file.")
+                            return _vehicles_cache
+                except Exception:
+                    pass
 
     client = get_firestore_client()
     if not client:
         return _vehicles_cache or []
 
-    candidate_collections = ["offRoadVehicles", "Vehicle", "deals", "allDeals", "vehicles", "buggies", "products"]
+    candidate_collections = ["offRoadVehicles", "Vehicle", "deals", "allDeals"]
     results = []
 
     try:
-        existing_col_ids = [c.id for c in client.collections()]
-        from datetime import datetime, timezone
-        now = datetime.now(timezone.utc)
-        
         for col_name in candidate_collections:
-            if col_name in existing_col_ids:
-                docs = client.collection(col_name).stream()
+            try:
+                docs = client.collection(col_name).limit(100).stream(timeout=5)
                 for doc in docs:
                     data = doc.to_dict()
                     if data.get("isDeleted") or data.get("disable") or data.get("is_block") or data.get("isVehicleComingSoon"):
                         continue
                     if data.get("Is Approved") is False or data.get("is_approved") is False:
                         continue
-                    
-                    exp = data.get("expiry_date") or data.get("expiryDate")
-                    if exp:
-                        try:
-                            if hasattr(exp, "timestamp") and exp < now:
-                                continue
-                        except Exception:
-                            pass
-
                     data["id"] = doc.id
                     data["_collection"] = col_name
                     results.append(data)
+            except Exception as col_err:
+                print(f"[Firebase] Non-blocking warning streaming {col_name}: {col_err}")
 
-        _vehicles_cache = results
-        _vehicles_cache_time = now_ts
-        print(f"[Firebase] Cached {len(results)} vehicles in memory (TTL: {CACHE_TTL_SECONDS}s)")
+        if results:
+            _vehicles_cache = results
+            _vehicles_cache_time = time.time()
+            print(f"[Firebase] Successfully cached {len(results)} vehicles in memory.")
     except Exception as e:
-        print(f"[Firebase] Error streaming documents: {e}")
+        print(f"[Firebase] Error in fetch_cmj_vehicles: {e}")
 
     return _vehicles_cache or results
 
 def warm_up_cache():
-    """Pre-warms both vehicle listings and offroad image caches."""
     try:
         fetch_cmj_vehicles(force_refresh=True)
         _init_offroad_caches()
-        print("[Firebase] Warm-up complete: inventory and image caches loaded.")
     except Exception as e:
         print(f"[Firebase] Error during cache warm-up: {e}")
 
@@ -422,12 +366,8 @@ def _get_vehicle_brand(name: str) -> str:
     return "Adventure Series"
 
 def extract_search_criteria(user_query: str) -> Dict[str, Any]:
-    """
-    Extracts criteria (vehicle types list, seat counts list, brands, budget/prices) from user query.
-    """
     q = user_query.lower()
 
-    # 1. Detect requested seat categories
     seats = []
     if re.search(r'\b(2|two)\s*(?:-| )*(?:seater|seat|people|person|pax)\b', q):
         seats.append(2)
@@ -440,7 +380,6 @@ def extract_search_criteria(user_query: str) -> Dict[str, Any]:
     if re.search(r'\b(6|six)\s*(?:-| )*(?:seater|seat|people|person|pax)\b', q):
         seats.append(6)
 
-    # 2. Detect requested vehicle types
     types = []
     if "buggy" in q or "buggies" in q:
         types.append("Buggy")
@@ -449,13 +388,11 @@ def extract_search_criteria(user_query: str) -> Dict[str, Any]:
     if "utv" in q:
         types.append("UTV")
 
-    # 3. Detect requested brands
     brands = []
     for b in ["can-am", "canam", "maverick", "yamaha", "wolverine", "yxz", "cfmoto", "zforce", "honda", "talon", "kawasaki", "teryx", "polaris", "rzr", "arctic cat"]:
         if b in q:
             brands.append(b)
 
-    # 4. Detect price / budget numbers
     prices = [float(p) for p in re.findall(r'(\d+(?:\.\d+)?)\s*(?:aed|\$|dollars|usd)', q)]
     if not prices:
         prices = [float(p) for p in re.findall(r'(?:under|below|budget|max|up to)\s*\$?(\d+(?:\.\d+)?)', q)]
@@ -469,7 +406,6 @@ def extract_search_criteria(user_query: str) -> Dict[str, Any]:
     }
 
 def get_vehicle_star_rating(item: Dict[str, Any], price: Optional[float]) -> str:
-    """Calculates a realistic premium star rating for a vehicle based on specs and model."""
     name = str(item.get("Name", item.get("name", ""))).lower()
     if any(k in name for k in ["maverick", "x3", "1000", "turbo", "can-am", "polaris rzr", "vip", "yxz", "talon", "teryx"]) or (price and price >= 600):
         return "⭐⭐⭐⭐⭐ (5/5 Stars - VIP Luxury)"
@@ -479,10 +415,6 @@ def get_vehicle_star_rating(item: Dict[str, Any], price: Optional[float]) -> str
         return "⭐⭐⭐ (3/5 Stars - Standard Economy)"
 
 def search_cmj_inventory(user_query: str) -> str:
-    """
-    Searches the 'cmj-dev' database for available vehicles matching user query.
-    Returns a formatted string describing matching inventory with diverse brands and models.
-    """
     criteria = extract_search_criteria(user_query)
     vehicles = fetch_cmj_vehicles()
 
@@ -561,21 +493,16 @@ def search_cmj_inventory(user_query: str) -> str:
 
         return selected
 
-    # Case 1: User requested multiple seat sizes
     if len(req_seats) > 1:
         for s in req_seats:
             target_t = req_types[0] if req_types else None
             chosen = filter_and_rank(vehicles, target_seat=s, target_type=target_t, limit=2)
             final_matched.extend(chosen)
-
-    # Case 2: User requested multiple vehicle types
     elif len(req_types) > 1:
         for t in req_types:
             target_s = req_seats[0] if req_seats else None
             chosen = filter_and_rank(vehicles, target_seat=target_s, target_type=t, limit=2)
             final_matched.extend(chosen)
-
-    # Case 3: Single category or general query
     else:
         target_s = req_seats[0] if req_seats else None
         target_t = req_types[0] if req_types else None
