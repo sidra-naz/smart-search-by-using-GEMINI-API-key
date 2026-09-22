@@ -1,7 +1,7 @@
 export class ChatService {
     constructor() {
-        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-        this.apiUrl = isLocal && window.location.port === '3000' 
+        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname === '';
+        this.apiUrl = isLocal && window.location.port !== '8000'
             ? 'http://127.0.0.1:8000/api/chat' 
             : '/api/chat';
     }

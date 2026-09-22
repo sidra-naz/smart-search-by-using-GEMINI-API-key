@@ -233,36 +233,49 @@ export class ChatbotUI {
         let textToFormat = str;
 
         if (isStreaming) {
-            // While actively streaming, temporarily hide trailing incomplete markdown image syntax
-            // so we don't attempt to load partial/broken image URLs on micro-token chunks.
+            // While streaming, hide trailing incomplete markdown image syntax
             textToFormat = textToFormat.replace(/!\[[^\]]*\]\([^)]*$/g, '');
             textToFormat = textToFormat.replace(/!\[[^\]]*$/g, '');
         }
-        
-        // Basic HTML escaping to prevent XSS
-        let formatted = textToFormat.replace(/&/g, '&amp;')
-                                   .replace(/</g, '&lt;')
-                                   .replace(/>/g, '&gt;')
-                                   .replace(/"/g, '&quot;')
-                                   .replace(/'/g, '&#39;');
 
-        const fallbackImg = "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/7953?alt=media&token=d2268693-7d38-4e82-b21a-74b5a682ba98";
+        const fallbackImg = "assets/vehicles/polaris_rzr.jpg";
 
-        // Helper to construct image HTML
+        // Build <img> HTML from a URL + alt text
         const buildImgHTML = (rawUrl, alt) => {
-            const cleanUrl = rawUrl.replace(/&amp;/g, '&');
-            return `<div class="vehicle-card-img-wrapper" style="margin: 12px 0;"><img src="${cleanUrl}" alt="${alt}" style="max-width: 100%; max-height: 260px; border-radius: 12px; object-fit: cover; display: block; box-shadow: 0 4px 14px rgba(0,0,0,0.18);" onerror="this.onerror=null; this.src='${fallbackImg}';"></div>`;
+            let cleanUrl = rawUrl.trim();
+            if (cleanUrl.startsWith('/assets/')) {
+                cleanUrl = cleanUrl.substring(1); // make relative to page root
+            }
+            const safeAlt = alt.replace(/"/g, '&quot;');
+            return `<div class="vehicle-card-img-wrapper" style="margin:12px 0;"><img src="${cleanUrl}" alt="${safeAlt}" loading="lazy" style="width:100%;max-width:480px;height:220px;border-radius:12px;object-fit:cover;display:block;box-shadow:0 4px 14px rgba(0,0,0,0.25);" onerror="if(this.src!=='${fallbackImg}'){this.onerror=null;this.src='${fallbackImg}';}"></div>`;
         };
 
-        // Parse FULL COMPLETE markdown images: ![alt](url)
-        formatted = formatted.replace(/!\[([^\]]*)\]\((https?:\/\/[^\s\)]+)\)/g, (match, alt, url) => {
-            return buildImgHTML(url, alt || "Vehicle Preview");
+        // ── STEP 1: Extract every ![alt](url) BEFORE HTML-escaping ──────────────
+        // Use a safe ASCII placeholder that HTML-escaping will NOT touch.
+        const imgStore = [];
+        textToFormat = textToFormat.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_match, alt, url) => {
+            const idx = imgStore.length;
+            imgStore.push(buildImgHTML(url.trim(), alt || 'Vehicle'));
+            return `ATVBOTIMG${idx}ENDIMG`; // safe: no &<>"' chars
         });
 
-        // Parse markdown bold: **text**
+        // ── STEP 2: HTML-escape the remaining text (no images left inside) ──────
+        let formatted = textToFormat
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+
+        // ── STEP 3: Re-inject real <img> HTML in place of each placeholder ──────
+        imgStore.forEach((html, idx) => {
+            formatted = formatted.split(`ATVBOTIMG${idx}ENDIMG`).join(html);
+        });
+
+        // Bold: **text**
         formatted = formatted.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
 
-        // New lines to <br>
+        // Newlines → <br>
         formatted = formatted.replace(/\n/g, '<br>');
 
         return formatted;

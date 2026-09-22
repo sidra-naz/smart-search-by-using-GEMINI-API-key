@@ -10,8 +10,13 @@ import re
 import json
 import time
 from typing import List, Dict, Any, Optional
-from google.cloud import firestore
-from google.oauth2 import service_account
+
+try:
+    from google.cloud import firestore
+    from google.oauth2 import service_account
+except Exception as e:
+    firestore = None
+    service_account = None
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 key_files = glob.glob(os.path.join(CURRENT_DIR, "*firebase-adminsdk*.json"))
@@ -20,12 +25,15 @@ if not key_files:
 
 CRED_PATH = key_files[0] if key_files else None
 
-_db: Optional[firestore.Client] = None
+_db: Any = None
 
-def get_firestore_client(force_new: bool = False) -> Optional[firestore.Client]:
+def get_firestore_client(force_new: bool = False) -> Any:
     global _db
     if _db is not None and not force_new:
         return _db
+
+    if firestore is None:
+        return None
 
     # 1. Check environment variable FIREBASE_CREDENTIALS (for Vercel deployment)
     env_creds = os.getenv("FIREBASE_CREDENTIALS")
@@ -95,62 +103,164 @@ def get_vehicle_price(v: Dict[str, Any]) -> Optional[float]:
         return 598.0
 
 MODEL_SPECIFIC_IMAGES = {
-    "zforce": ["https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/4451?alt=media&token=831c6d49-f076-49b9-bffc-aea13c9b0109"],
-    "z force": ["https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/4451?alt=media&token=831c6d49-f076-49b9-bffc-aea13c9b0109"],
-    "cfmoto": ["https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/4451?alt=media&token=831c6d49-f076-49b9-bffc-aea13c9b0109"],
-    "uforce": ["https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/4451?alt=media&token=831c6d49-f076-49b9-bffc-aea13c9b0109"],
-    "wolverine": [
-        "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/4717?alt=media&token=02d06b37-9bc0-4d3b-adcb-d8c89fb1fabc",
-        "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/4979?alt=media&token=e838f550-1930-40a0-a0e1-3776be315beb"
+    "zforce": [
+        "https://imagedelivery.net/P3Dzecn-jTdvXXgWWrFQig/fc8a513e-db5f-4bc9-4e07-6de6c23be700/phoneSmall",
+        "/assets/vehicles/cfmoto_buggy.jpg"
     ],
-    "yxz": ["https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/4717?alt=media&token=02d06b37-9bc0-4d3b-adcb-d8c89fb1fabc"],
-    "yamaha": ["https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/4717?alt=media&token=02d06b37-9bc0-4d3b-adcb-d8c89fb1fabc"],
-    "talon": ["https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/4655?alt=media&token=42fcba83-93f8-44b1-b588-9b7fbcf25f96"],
-    "pioneer": ["https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/4655?alt=media&token=42fcba83-93f8-44b1-b588-9b7fbcf25f96"],
-    "honda": ["https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/4655?alt=media&token=42fcba83-93f8-44b1-b588-9b7fbcf25f96"],
-    "teryx": ["https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/5904?alt=media&token=d602feba-60be-4e50-9a54-38580941ed27"],
-    "krx": ["https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/5904?alt=media&token=d602feba-60be-4e50-9a54-38580941ed27"],
-    "mule": ["https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/5904?alt=media&token=d602feba-60be-4e50-9a54-38580941ed27"],
-    "kawasaki": ["https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/5904?alt=media&token=d602feba-60be-4e50-9a54-38580941ed27"],
-    "wildcat": ["https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/5487?alt=media&token=fb28eef8-7ed8-4af5-8fec-1703e9c727ad"],
-    "arctic cat": ["https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/5487?alt=media&token=fb28eef8-7ed8-4af5-8fec-1703e9c727ad"],
-    "maverick": ["https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/1772?alt=media&token=f2a2f4e6-1f78-4ad9-a003-df04be78dfe6"],
-    "can-am": ["https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/1772?alt=media&token=f2a2f4e6-1f78-4ad9-a003-df04be78dfe6"],
+    "z force": [
+        "https://imagedelivery.net/P3Dzecn-jTdvXXgWWrFQig/fc8a513e-db5f-4bc9-4e07-6de6c23be700/phoneSmall",
+        "/assets/vehicles/cfmoto_buggy.jpg"
+    ],
+    "cfmoto": [
+        "https://imagedelivery.net/P3Dzecn-jTdvXXgWWrFQig/fc8a513e-db5f-4bc9-4e07-6de6c23be700/phoneSmall",
+        "/assets/vehicles/cfmoto_buggy.jpg"
+    ],
+    "uforce": [
+        "https://imagedelivery.net/P3Dzecn-jTdvXXgWWrFQig/c617b742-e708-4e6f-69fb-b38edcb9f000/phoneSmall",
+        "/assets/vehicles/utv_4seater.jpg"
+    ],
+    "wolverine": [
+        "https://imagedelivery.net/P3Dzecn-jTdvXXgWWrFQig/c617b742-e708-4e6f-69fb-b38edcb9f000/phoneSmall",
+        "/assets/vehicles/utv_4seater.jpg"
+    ],
+    "yxz": [
+        "https://imagedelivery.net/P3Dzecn-jTdvXXgWWrFQig/fc8a513e-db5f-4bc9-4e07-6de6c23be700/phoneSmall",
+        "/assets/vehicles/polaris_rzr.jpg"
+    ],
+    "yamaha": [
+        "https://imagedelivery.net/P3Dzecn-jTdvXXgWWrFQig/451f4a3c-57e5-40be-c10a-ece292e29300/phoneSmall",
+        "/assets/vehicles/atv_quad.jpg"
+    ],
+    "talon": [
+        "https://imagedelivery.net/P3Dzecn-jTdvXXgWWrFQig/f11f65e9-0574-40aa-3587-728d1a8cc600/phoneSmall",
+        "/assets/vehicles/canam.jpg"
+    ],
+    "pioneer": [
+        "https://imagedelivery.net/P3Dzecn-jTdvXXgWWrFQig/c617b742-e708-4e6f-69fb-b38edcb9f000/phoneSmall",
+        "/assets/vehicles/utv_4seater.jpg"
+    ],
+    "honda": [
+        "https://imagedelivery.net/P3Dzecn-jTdvXXgWWrFQig/451f4a3c-57e5-40be-c10a-ece292e29300/phoneSmall",
+        "/assets/vehicles/atv_quad.jpg"
+    ],
+    "teryx": [
+        "https://imagedelivery.net/P3Dzecn-jTdvXXgWWrFQig/f11f65e9-0574-40aa-3587-728d1a8cc600/phoneSmall",
+        "/assets/vehicles/canam.jpg"
+    ],
+    "krx": [
+        "https://imagedelivery.net/P3Dzecn-jTdvXXgWWrFQig/f11f65e9-0574-40aa-3587-728d1a8cc600/phoneSmall",
+        "/assets/vehicles/canam.jpg"
+    ],
+    "mule": [
+        "https://imagedelivery.net/P3Dzecn-jTdvXXgWWrFQig/c617b742-e708-4e6f-69fb-b38edcb9f000/phoneSmall",
+        "/assets/vehicles/utv_4seater.jpg"
+    ],
+    "kawasaki": [
+        "https://imagedelivery.net/P3Dzecn-jTdvXXgWWrFQig/f11f65e9-0574-40aa-3587-728d1a8cc600/phoneSmall",
+        "/assets/vehicles/canam.jpg"
+    ],
+    "wildcat": [
+        "https://imagedelivery.net/P3Dzecn-jTdvXXgWWrFQig/f11f65e9-0574-40aa-3587-728d1a8cc600/phoneSmall",
+        "/assets/vehicles/canam.jpg"
+    ],
+    "arctic cat": [
+        "https://imagedelivery.net/P3Dzecn-jTdvXXgWWrFQig/f11f65e9-0574-40aa-3587-728d1a8cc600/phoneSmall",
+        "/assets/vehicles/canam.jpg"
+    ],
+    "maverick": [
+        "https://imagedelivery.net/P3Dzecn-jTdvXXgWWrFQig/f11f65e9-0574-40aa-3587-728d1a8cc600/phoneSmall",
+        "/assets/vehicles/canam.jpg"
+    ],
+    "can-am": [
+        "https://imagedelivery.net/P3Dzecn-jTdvXXgWWrFQig/f11f65e9-0574-40aa-3587-728d1a8cc600/phoneSmall",
+        "/assets/vehicles/canam.jpg"
+    ],
+    "canam": [
+        "https://imagedelivery.net/P3Dzecn-jTdvXXgWWrFQig/f11f65e9-0574-40aa-3587-728d1a8cc600/phoneSmall",
+        "/assets/vehicles/canam.jpg"
+    ],
     "rzr xp 4": [
-        "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/7757?alt=media&token=786f9e6e-fe64-486a-808c-960ef99aa158",
-        "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/8197?alt=media&token=98a9d6cc-087d-4c1c-92c1-10ebcb454044"
+        "https://imagedelivery.net/P3Dzecn-jTdvXXgWWrFQig/c617b742-e708-4e6f-69fb-b38edcb9f000/phoneSmall",
+        "https://imagedelivery.net/P3Dzecn-jTdvXXgWWrFQig/8f428318-34f4-44b9-a37d-e5623e82bc00/phoneSmall",
+        "/assets/vehicles/utv_4seater.jpg"
+    ],
+    "rzr 4": [
+        "https://imagedelivery.net/P3Dzecn-jTdvXXgWWrFQig/c617b742-e708-4e6f-69fb-b38edcb9f000/phoneSmall",
+        "https://imagedelivery.net/P3Dzecn-jTdvXXgWWrFQig/8f428318-34f4-44b9-a37d-e5623e82bc00/phoneSmall",
+        "/assets/vehicles/utv_4seater.jpg"
+    ],
+    "rzr pro": [
+        "https://imagedelivery.net/P3Dzecn-jTdvXXgWWrFQig/e31ca7a2-148d-444e-6f41-b359fa173000/phoneSmall",
+        "/assets/vehicles/polaris_rzr.jpg"
+    ],
+    "rzr 200": [
+        "https://imagedelivery.net/P3Dzecn-jTdvXXgWWrFQig/6a5b8eb8-fa00-48db-deef-3b5ec6a0e600/phoneSmall",
+        "/assets/vehicles/polaris_rzr.jpg"
+    ],
+    "rzr turbo": [
+        "https://imagedelivery.net/P3Dzecn-jTdvXXgWWrFQig/fd505bcb-417c-402e-2ab2-5f29ef6dd300/phoneSmall",
+        "/assets/vehicles/polaris_rzr.jpg"
     ],
     "rzr": [
-        "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/7953?alt=media&token=d2268693-7d38-4e82-b21a-74b5a682ba98",
-        "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/9108?alt=media&token=0c9a27ee-acec-4c8d-b625-a89edc35a4f4"
+        "https://imagedelivery.net/P3Dzecn-jTdvXXgWWrFQig/fc8a513e-db5f-4bc9-4e07-6de6c23be700/phoneSmall",
+        "https://imagedelivery.net/P3Dzecn-jTdvXXgWWrFQig/fd505bcb-417c-402e-2ab2-5f29ef6dd300/phoneSmall",
+        "/assets/vehicles/polaris_rzr.jpg"
     ],
-    "ranger": ["https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/7953?alt=media&token=d2268693-7d38-4e82-b21a-74b5a682ba98"],
-    "gts": ["https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/4655?alt=media&token=42fcba83-93f8-44b1-b588-9b7fbcf25f96"],
-    "tour": ["https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/4717?alt=media&token=02d06b37-9bc0-4d3b-adcb-d8c89fb1fabc"],
-    "grizzly": ["https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/users%2FrM4rRtN3KmeDxNrrgGcJ6BtSWyu2%2Fvehicle%2F3910.jpg?alt=media&token=4db255ad-9dc4-45ed-acdf-e4f0a275a7fd"],
-    "cobra": ["https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/8016?alt=media&token=74144f54-f601-47a0-a7ca-c428cb8780ec"],
-    "sportsman": ["https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/7115?alt=media&token=264468a5-cc3c-44ff-9972-bd9e6c0cfcff"],
-    "mxu": ["https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/7106?alt=media&token=9514fdeb-a9ca-4ee7-8e35-588c6066293d"],
-    "mongoose": ["https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/134?alt=media&token=20c9688b-8a8a-4486-af95-84d28ffb0abf"]
+    "polaris": [
+        "https://imagedelivery.net/P3Dzecn-jTdvXXgWWrFQig/fc8a513e-db5f-4bc9-4e07-6de6c23be700/phoneSmall",
+        "/assets/vehicles/polaris_rzr.jpg"
+    ],
+    "ranger": [
+        "https://imagedelivery.net/P3Dzecn-jTdvXXgWWrFQig/c617b742-e708-4e6f-69fb-b38edcb9f000/phoneSmall",
+        "/assets/vehicles/utv_4seater.jpg"
+    ],
+    "gts": [
+        "https://imagedelivery.net/P3Dzecn-jTdvXXgWWrFQig/fc8a513e-db5f-4bc9-4e07-6de6c23be700/phoneSmall",
+        "/assets/vehicles/canam.jpg"
+    ],
+    "tour": [
+        "https://imagedelivery.net/P3Dzecn-jTdvXXgWWrFQig/fc8a513e-db5f-4bc9-4e07-6de6c23be700/phoneSmall",
+        "/assets/vehicles/polaris_rzr.jpg"
+    ],
+    "grizzly": [
+        "https://imagedelivery.net/P3Dzecn-jTdvXXgWWrFQig/451f4a3c-57e5-40be-c10a-ece292e29300/phoneSmall",
+        "/assets/vehicles/atv_quad.jpg"
+    ],
+    "cobra": [
+        "https://imagedelivery.net/P3Dzecn-jTdvXXgWWrFQig/5374da69-8161-4da7-d865-46f60d2e2000/phoneSmall",
+        "/assets/vehicles/atv_quad.jpg"
+    ],
+    "sportsman": [
+        "https://imagedelivery.net/P3Dzecn-jTdvXXgWWrFQig/451f4a3c-57e5-40be-c10a-ece292e29300/phoneSmall",
+        "https://imagedelivery.net/P3Dzecn-jTdvXXgWWrFQig/5374da69-8161-4da7-d865-46f60d2e2000/phoneSmall",
+        "/assets/vehicles/atv_quad.jpg"
+    ],
+    "mxu": [
+        "https://imagedelivery.net/P3Dzecn-jTdvXXgWWrFQig/83315bb1-6c6a-4c28-d2d8-5b2a58bc5400/phoneSmall",
+        "/assets/vehicles/atv_quad.jpg"
+    ],
+    "mongoose": [
+        "https://imagedelivery.net/P3Dzecn-jTdvXXgWWrFQig/83315bb1-6c6a-4c28-d2d8-5b2a58bc5400/phoneSmall",
+        "/assets/vehicles/atv_quad.jpg"
+    ]
 }
 
 BUGGY_FALLBACK_POOL = [
-    "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/1772?alt=media&token=f2a2f4e6-1f78-4ad9-a003-df04be78dfe6",
-    "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/4717?alt=media&token=02d06b37-9bc0-4d3b-adcb-d8c89fb1fabc",
-    "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/4451?alt=media&token=831c6d49-f076-49b9-bffc-aea13c9b0109",
-    "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/5904?alt=media&token=d602feba-60be-4e50-9a54-38580941ed27",
-    "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/4655?alt=media&token=42fcba83-93f8-44b1-b588-9b7fbcf25f96",
-    "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/5487?alt=media&token=fb28eef8-7ed8-4af5-8fec-1703e9c727ad",
-    "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/7757?alt=media&token=786f9e6e-fe64-486a-808c-960ef99aa158",
-    "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/7953?alt=media&token=d2268693-7d38-4e82-b21a-74b5a682ba98"
+    "https://imagedelivery.net/P3Dzecn-jTdvXXgWWrFQig/f11f65e9-0574-40aa-3587-728d1a8cc600/phoneSmall",
+    "https://imagedelivery.net/P3Dzecn-jTdvXXgWWrFQig/fc8a513e-db5f-4bc9-4e07-6de6c23be700/phoneSmall",
+    "https://imagedelivery.net/P3Dzecn-jTdvXXgWWrFQig/c617b742-e708-4e6f-69fb-b38edcb9f000/phoneSmall",
+    "https://imagedelivery.net/P3Dzecn-jTdvXXgWWrFQig/fd505bcb-417c-402e-2ab2-5f29ef6dd300/phoneSmall",
+    "/assets/vehicles/canam.jpg",
+    "/assets/vehicles/polaris_rzr.jpg",
+    "/assets/vehicles/cfmoto_buggy.jpg",
+    "/assets/vehicles/utv_4seater.jpg"
 ]
 
 ATV_FALLBACK_POOL = [
-    "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/8016?alt=media&token=74144f54-f601-47a0-a7ca-c428cb8780ec",
-    "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/users%2FrM4rRtN3KmeDxNrrgGcJ6BtSWyu2%2Fvehicle%2F3910.jpg?alt=media&token=4db255ad-9dc4-45ed-acdf-e4f0a275a7fd",
-    "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/7115?alt=media&token=264468a5-cc3c-44ff-9972-bd9e6c0cfcff",
-    "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/7106?alt=media&token=9514fdeb-a9ca-4ee7-8e35-588c6066293d",
-    "https://firebasestorage.googleapis.com/v0/b/cmj-buggy.appspot.com/o/134?alt=media&token=20c9688b-8a8a-4486-af95-84d28ffb0abf"
+    "https://imagedelivery.net/P3Dzecn-jTdvXXgWWrFQig/451f4a3c-57e5-40be-c10a-ece292e29300/phoneSmall",
+    "https://imagedelivery.net/P3Dzecn-jTdvXXgWWrFQig/5374da69-8161-4da7-d865-46f60d2e2000/phoneSmall",
+    "https://imagedelivery.net/P3Dzecn-jTdvXXgWWrFQig/83315bb1-6c6a-4c28-d2d8-5b2a58bc5400/phoneSmall",
+    "/assets/vehicles/atv_quad.jpg"
 ]
 
 _offroad_uid_cache: Optional[Dict[str, List[str]]] = None
@@ -164,14 +274,14 @@ def _extract_all_http_urls(data: Dict[str, Any]) -> List[str]:
         for plate, u_list in plate_imgs.items():
             if isinstance(u_list, list):
                 for u in u_list:
-                    if isinstance(u, str) and u.startswith("http") and u not in urls:
+                    if isinstance(u, str) and u.startswith("http") and "cmj-buggy.appspot.com" not in u and u not in urls:
                         urls.append(u)
     imgs = data.get("Images") or data.get("ImagesIds") or data.get("image")
     if isinstance(imgs, list):
         for u in imgs:
-            if isinstance(u, str) and u.startswith("http") and u not in urls:
+            if isinstance(u, str) and u.startswith("http") and "cmj-buggy.appspot.com" not in u and u not in urls:
                 urls.append(u)
-    elif isinstance(imgs, str) and imgs.startswith("http") and imgs not in urls:
+    elif isinstance(imgs, str) and imgs.startswith("http") and "cmj-buggy.appspot.com" not in imgs and imgs not in urls:
         urls.append(imgs)
     return urls
 
